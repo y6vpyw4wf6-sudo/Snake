@@ -8,11 +8,19 @@ from Snake import Snake
 
 
 class Game:
-    def __init__(self, stdscr, save_data=None, filename=None):
+    def __init__(self, stdscr, save_data=None, filename=None, map_height=30, map_width=60):
         self.stdscr = stdscr
         self.filename = filename
+        
+        if save_data:
+            self.map_height = save_data["map_height"]
+            self.map_width = save_data["map_width"]
+        else:
+            self.map_height = map_height
+            self.map_width = map_width             
 
-        self.height, self.width = stdscr.getmaxyx()
+        self.height = self.map_height
+        self.width = self.map_width
 
         self.score = 0
 
@@ -46,24 +54,23 @@ class Game:
             
             self.food.position = save_data["food"]
             
-            self.walls.positions = save_data["walls"]
-            
+            self.walls.positions = save_data["walls"]     
         else:
             self.food.respawn(
                 self.height,
                 self.width,
                 self.snake,
                 self.walls
-            ) 
-
-        # If the food appears on the snake or the wall,
-        # we recreate it.
-        self.food.respawn(
-            self.height,
-            self.width,
-            self.snake,
-            self.walls
-        )
+            )   
+            
+        terminal_height, terminal_width = self.stdscr.getmaxyx()
+        
+        if self.height > terminal_height or self.width > terminal_width:
+            raise ValueError(
+                f"Карта {self.height}x{self.width}"
+                f"не помещается в терминал "
+                f"{terminal_height}x{terminal_width}"
+            )
 
         self.window = curses.newwin(
             self.height,
@@ -84,7 +91,10 @@ class Game:
             "walls": self.walls.positions,
             "score": self.score,
             "time_left": self.time_limit - self.ticks_since_food,
-            "direction": self.snake.direction
+            "direction": self.snake.direction,
+            
+            "map_height": self.map_height,
+            "map_width": self.map_width
         }
         
         os.makedirs("saves", exist_ok=True)
