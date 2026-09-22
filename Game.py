@@ -8,20 +8,20 @@ from Snake import Snake
 
 
 class Game:
-    def __init__(self, stdscr, save_data=None, filename=None, map_height=30, map_width=60):
+    def __init__(self, stdscr, config, save_data=None, filename=None):
         self.stdscr = stdscr
         self.filename = filename
         
         if save_data:
-            self.map_height = save_data["map_height"]
-            self.map_width = save_data["map_width"]
+            self.map_height = save_data["map"]["height"]
+            self.map_width = save_data["map"]["width"]
         else:
-            self.map_height = map_height
-            self.map_width = map_width             
+            self.map_height = config["map"]["height"]
+            self.map_width = config["map"]["width"]             
 
         self.height = self.map_height
         self.width = self.map_width
-
+        
         self.score = 0
 
         # How many ticks are left until the time runs out.
@@ -37,7 +37,8 @@ class Game:
         self.walls = Wall(
             self.height,
             self.width,
-            15
+            15,
+            self.snake.get_head()
         )
 
         self.food = Food(
@@ -92,23 +93,29 @@ class Game:
             "score": self.score,
             "time_left": self.time_limit - self.ticks_since_food,
             "direction": self.snake.direction,
-            
-            "map_height": self.map_height,
-            "map_width": self.map_width
-        }
+            "map": {
+                "height": self.map_height,
+                "width": self.map_width
+        }}
         
         os.makedirs("saves", exist_ok=True)
 
-        with open(filename, "w") as file:
-            json.dump(save_data, file, indent=4)
+        try:
+            with open(filename, "w") as file:
+                json.dump(save_data, file, indent=4)
+        except OSError:
+            return
             
     @staticmethod
     def load_game(filename):
         if not os.path.exists(filename):
             return None
         
-        with open(filename, "r") as file:
-            save_data = json.load(file)
+        try:
+            with open(filename, "r") as file:
+                save_data = json.load(file)
+        except json.JSONDecodeError:
+            return None
             
         return save_data            
             

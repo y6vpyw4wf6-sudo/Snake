@@ -116,7 +116,7 @@ class Menu:
                         save_data = Game.load_game(filename)
                         
                         if save_data:
-                            game = Game(self.stdscr, save_data, filename)
+                            game = Game(self.stdscr, None, save_data, filename)
                             game.run()
                         
                 elif choice == "Загрузить":
@@ -125,7 +125,13 @@ class Menu:
                         
                 elif choice == "Новая игра":
                     
-                    game = Game(self.stdscr, map_height=self.map_height, map_width=self.map_width)
+                    config = {
+                        "map": {
+                            "height": self.map_height,
+                            "width": self.map_width
+                    }}
+                    
+                    game = Game(self.stdscr, config)
                     game.run()
 
                 elif choice == "Настройки":
@@ -249,7 +255,7 @@ class Menu:
                 save_data = Game.load_game(filename)
                 
                 if save_data:
-                    game = Game(self.stdscr, save_data, filename)
+                    game = Game(self.stdscr, None, save_data, filename)
                     game.run()
                     
                 return
@@ -359,106 +365,92 @@ class Menu:
                 return
             
     def show_game_settings(self):
-        self.current_row = 0
-
-        while True:
+            map_sizes = [
+                (20, 40),
+                (30, 60),
+                (40, 80)
+                        ]
             
-            height, width = self.stdscr.getmaxyx()
-            
-            max_map_height = height - 2
-            max_map_width = width - 2
-            
-            game_settings = [
-                "Маленькая - 20 x 40",
-                "Средняя - 30 x 60",
-                "Большая 40 x 80",
-                "Назад"
-            ]
-            
-            self.stdscr.clear()
-
-            title = "Игра"
-
-            self.stdscr.addstr(
-                2,
-                width // 2 - len(title) // 2,
-                title,
-                curses.A_BOLD
+            # Determinate the current size
+            current_size = map_sizes.index(
+                (self.map_height, self.map_width)
             )
 
-            for index, row in enumerate(game_settings):
+            current_row = 0
 
-                x = width // 2 - len(row) // 2
-                y = height // 2 - len(game_settings) // 2 + index
+            while True:
+                self.stdscr.clear()
 
-                if index == self.current_row:
+                height, width = self.stdscr.getmaxyx()
 
-                    self.stdscr.attron(
-                        curses.color_pair(2)
-                    )
+                title = "Игра"
+                self.stdscr.addstr(
+                    2,
+                    width // 2 - len(title) // 2,
+                    title,
+                    curses.A_BOLD
+                )
 
-                    self.stdscr.addstr(
-                        y,
-                        x,
-                        row
-                    )
+                map_text = (
+                    f"Размер карты   "
+                    f"[ {map_sizes[current_size][0]}x"
+                    f"{map_sizes[current_size][1]} ]"
+                )
 
-                    self.stdscr.attroff(
-                        curses.color_pair(2)
-                    )
+                map_x = width // 2 - len(map_text) // 2
+                map_y = height // 2
 
+                if current_row == 0:
+                    self.stdscr.attron(curses.color_pair(2))
+                    self.stdscr.addstr(map_y, map_x, map_text)
+                    self.stdscr.attroff(curses.color_pair(2))
                 else:
+                    self.stdscr.addstr(map_y, map_x, map_text)
 
-                    self.stdscr.addstr(
-                        y,
-                        x,
-                        row
-                    )
+                back_text = "Назад"
 
-            self.stdscr.refresh()
+                back_x = width // 2 - len(back_text) // 2
+                back_y = map_y + 2
 
-            key = self.stdscr.getch()
+                if current_row == 1:
+                    self.stdscr.attron(curses.color_pair(2))
+                    self.stdscr.addstr(back_y, back_x, back_text)
+                    self.stdscr.attroff(curses.color_pair(2))
+                else:
+                    self.stdscr.addstr(back_y, back_x, back_text)
 
-            if (
-                key == curses.KEY_UP
-                and self.current_row > 0
-            ):
-                self.current_row -= 1
+                self.stdscr.refresh()
 
-            elif (
-                key == curses.KEY_DOWN
-                and self.current_row < len(game_settings) - 1
-            ):
-                self.current_row += 1
+                key = self.stdscr.getch()
 
-            elif key in (
-                curses.KEY_ENTER,
-                10,
-                13
-            ):
+                if key == curses.KEY_UP:
+                    if current_row > 0:
+                        current_row -= 1
 
-                choice = game_settings[self.current_row]
-                
-                if choice == "Маленькая - 20 x 40":
-                    if max_map_height >= 20 and max_map_width >= 40:
-                        self.map_height = 20
-                        self.map_width = 40
-                    
-                elif choice == "Средняя - 30 x 60":
-                    if max_map_height >= 30 and max_map_width >= 60:
-                        self.map_height = 30
-                        self.map_width = 60
-                    
-                elif choice == "Большая - 40 x 80":
-                    if max_map_height >= 40 and max_map_width >= 80:
-                        self.map_height = 40
-                        self.map_width = 80
+                elif key == curses.KEY_DOWN:
+                    if current_row < 1:
+                        current_row += 1
 
-                elif choice == "Назад":
+                elif key == curses.KEY_LEFT and current_row == 0:
+                    if current_size > 0:
+                        current_size -= 1
+
+                elif key == curses.KEY_RIGHT and current_row == 0:
+                    if current_size < len(map_sizes) - 1:
+                        current_size += 1
+
+                # Enter
+                elif key in (curses.KEY_ENTER, 10, 13):
+                    if current_row == 0:
+                        self.map_height, self.map_width = map_sizes[current_size]
+
+                    elif current_row == 1:
+                        return
+
+                # ESC
+                elif key == 27:
                     return
 
-            elif key == 27:  # ESC
-                return
 
     def get_last_save(self):
         files = os.listdir("saves")
