@@ -1,5 +1,5 @@
 import curses
-from Menu import Menu
+from MainMenu import MainMenu
 
 
 def main(stdscr):
@@ -26,7 +26,7 @@ def main(stdscr):
         curses.COLOR_WHITE
     )
 
-    menu = Menu(stdscr)
+    menu = MainMenu(stdscr)
 
     menu.run()
     

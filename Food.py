@@ -6,7 +6,7 @@ class Food:
         self.position = [y, x]
 
     def respawn(self, height, width, snake, walls):
-        """Создаёт еду в случайном свободном месте."""
+        """Spawns food at a random location."""
 
         while True:
             y = random.randint(1, height - 2)
