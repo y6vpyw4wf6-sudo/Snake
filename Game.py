@@ -1,17 +1,20 @@
 import curses 
 import os
 import json
-
+from datetime import datetime
 from Food import Food
 from Wall import Wall
 from Snake import Snake
+from SaveManager import SaveManager
 
 
 class Game:
     def __init__(self, stdscr, config, save_data=None, filename=None):
         self.stdscr = stdscr
+        self.save_manager = SaveManager()
         self.filename = filename
-        
+        self.auto_save = config["auto_save"] if config else True
+
         if save_data:
             self.map_height = save_data["map"]["height"]
             self.map_width = save_data["map"]["width"]
@@ -85,7 +88,7 @@ class Game:
 
         self.snake_color = curses.color_pair(1)
         
-    def save_game(self, filename):
+    def get_save_data(self): #Implemented variable storage
         save_data = {
             "snake": self.snake.body,
             "food": self.food.position,
@@ -93,43 +96,28 @@ class Game:
             "score": self.score,
             "time_left": self.time_limit - self.ticks_since_food,
             "direction": self.snake.direction,
+            "last_save_at": datetime.now().isoformat(), #Saving by date
             "map": {
                 "height": self.map_height,
                 "width": self.map_width
-        }}
+            }
+        }
+        return save_data
         
-        os.makedirs("saves", exist_ok=True)
-
-        try:
-            with open(filename, "w") as file:
-                json.dump(save_data, file, indent=4)
-        except OSError:
-            return
-            
-    @staticmethod
-    def load_game(filename):
-        if not os.path.exists(filename):
-            return None
+    def save_game(self, filename):
+        save_data = self.get_save_data()
         
-        try:
-            with open(filename, "r") as file:
-                save_data = json.load(file)
-        except json.JSONDecodeError:
-            return None
-            
-        return save_data            
-            
-    def get_new_save_filename(self):
-        os.makedirs("saves", exist_ok=True)
+        self.save_manager.save(
+            save_data,
+            filename
+        )         
+    
+    def create_save(self):
+        filename = self.save_manager.get_new_save_filename()
+        self.save_game(filename)
         
-        files = os.listdir("saves")
-        next_number = len(files) + 1
-        
-        return f"saves/save_{next_number}.json"
-        
-    def check_game_over(self, score):
-        if score > self.high_score:
-            self.high_score = score
+    def overwrite(self, filename):
+        self.save_game(filename)
 
     def draw(self):
         """Draws the game board."""
@@ -206,6 +194,9 @@ class Game:
 
         if key == ord("q"):
             return False
+        
+        if key == ord(" "):
+            self.pause_menu()
 
         if key in (
             curses.KEY_UP,
@@ -216,6 +207,159 @@ class Game:
             self.snake.change_direction(key)
 
         return True
+    
+    def pause_menu(self): 
+        while True: 
+            self.window.clear()
+        
+            self.window.addstr(
+                2,
+                5,
+                "ПАУЗА"
+            )
+
+            self.window.addstr(
+                4,
+                5,
+                "S - Сохранить"
+            )
+
+            self.window.addstr(
+                5,
+                5,
+                "Space - Продолжить"
+            )
+
+            self.window.addstr(
+                6,
+                5,
+                "ESC - Выйти"
+            )
+
+            self.window.refresh()
+
+            key = self.window.getch()
+
+            if key in (ord("s"), ord("S")):
+                self.save_menu()
+
+            elif key == ord(" "):
+                return
+
+            elif key == 27:
+                return
+            
+    def save_menu(self): 
+        self.current_save_row = 0
+        
+        while True: 
+            self.window.clear()
+            
+            files = [
+                file for file in os.listdir("saves")
+                if file.startswith("save_") and file.endswith(".json")
+            ]
+
+            saves = []
+            
+            for file in files:
+                timestamp = file[5:-5]
+                save_time = datetime.strptime(
+                    timestamp,
+                    "%Y%m%d_%H%M%S"
+                )
+
+                formatted_time = save_time.strftime(
+                    "%d.%m.%Y %H:%M:%S"
+                )
+
+                saves.append(formatted_time)
+
+            saves.append("Новое сохранение")
+            saves.append("Назад")
+
+            self.window.addstr(
+                2,
+                5,
+                "СОХРАНИТЬ ИГРУ"
+            )
+
+            for index, save in enumerate(saves):
+                prefix = "> " if index == self.current_save_row else "  "
+
+                self.window.addstr(
+                    4 + index,
+                    5,
+                    prefix + save
+                )
+
+            self.window.refresh()
+
+            key = self.window.getch()
+
+            if key == curses.KEY_UP:
+                self.current_save_row = max(
+                    0,
+                    self.current_save_row - 1
+                )
+
+            elif key == curses.KEY_DOWN:
+                self.current_save_row = min(
+                    len(saves) - 1,
+                    self.current_save_row + 1
+                )
+
+            elif key in (10, 13):
+                selected = self.current_save_row
+                
+                if selected < len(files):
+                    
+                    filename = os.path.join(
+                        "saves",
+                        files[selected]
+                    )
+
+                    self.confirm_overwrite(filename)
+
+                elif selected == len(files):
+                    
+                    self.create_save()
+
+                else:
+                    
+                    return
+                
+    def confirm_overwrite(self, filename): 
+        while True: 
+            self.window.clear()
+            self.window.addstr(
+                4,
+                5,
+                "Перезаписать это сохранение?"
+            )
+
+            self.window.addstr(
+                6,
+                5,
+                "Enter - Да"
+            )
+
+            self.window.addstr(
+                7,
+                5,
+                "ESC - Нет"
+            )
+
+            self.window.refresh()
+
+            key = self.window.getch()
+
+            if key in (10, 13):
+                self.overwrite(filename)
+                return
+
+            elif key == 27:
+                return
 
     def check_collision(self, new_head):
         """Check the snake collisions."""
@@ -312,11 +456,9 @@ class Game:
                     self.snake,
                     self.walls
                 )
-                
-                if self.filename is None:
-                    self.filename = self.get_new_save_filename()
-            
-                self.save_game(self.filename)
+                if self.auto_save:
+                    auto_save_filename = self.save_manager.get_auto_save_filename()
+                    self.save_game(auto_save_filename)
             
             # Drawing a game.
             self.draw()
